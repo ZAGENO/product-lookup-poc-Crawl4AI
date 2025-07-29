@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # Ollama service for LLM processing
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    command: >
+      sh -c "ollama serve &
+             sleep 10 &&
+             ollama pull mistral:latest &&
+             wait"
+
+  product-search-service:
+    build: .
+    ports:
+      - "50051:50051"
+    environment:
+      # Google Search API
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_SEARCH_ENGINE_ID=${GOOGLE_PSE_ID}
+
+      # Ollama Configuration
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=mistral:latest
+
+      # Crawler Configuration
+      - CRAWLER_CONFIG_PATH=/app/config/crawler_config.json
+      - MEDICAL_LAB_CONFIG_PATH=/app/config/medical_lab_config.json
+
+      # Search Configuration
+      - MAX_SEARCH_RESULTS=8
+      - GRPC_PORT=50051
+
+      # Extraction Configuration
+      - EXTRACTION_TIMEOUT=45000
+      - BATCH_SIZE=2
+      - BATCH_DELAY=3
+
+    volumes:
+      # Mount source code for development
+      - ./src:/app/src
+      # Mount configuration files
+      - ./src/productlookup/config:/app/config
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; print('Service is healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  ollama_data:

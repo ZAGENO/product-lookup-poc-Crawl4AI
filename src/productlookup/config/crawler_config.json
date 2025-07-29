@@ -1,0 +1,142 @@
+{
+  "fields": {
+    "title": {
+      "enabled": true,
+      "selectors": [
+        "h1.product-title",
+        "h1.title",
+        ".product-name h1",
+        "[data-testid='product-title']",
+        ".product-heading",
+        ".item-name",
+        "h1",
+        ".product-name",
+        ".product-title"
+      ]
+    },
+    "brand": {
+      "enabled": true,
+      "selectors": [
+        ".brand-name",
+        ".manufacturer",
+        ".vendor",
+        "[data-testid='brand']",
+        ".product-brand",
+        ".brand",
+        ".company-name",
+        ".manufacturer-name",
+        "[class*='brand']",
+        "[class*='manufacturer']"
+      ]
+    },
+    "price": {
+      "enabled": true,
+      "selectors": [
+        ".price-current",
+        ".current-price",
+        ".product-price",
+        ".price",
+        ".offer-price",
+        "[data-testid='price']",
+        ".sale-price",
+        ".price-value",
+        "[class*='price']",
+        ".cost"
+      ]
+    },
+    "description": {
+      "enabled": true,
+      "selectors": [
+        ".product-description",
+        ".description",
+        "[id*='description']",
+        ".product-summary",
+        ".product-details",
+        ".item-description",
+        ".product-info",
+        ".specifications",
+        ".features"
+      ]
+    },
+    "part_number": {
+      "enabled": true,
+      "selectors": [
+        "[data-part-number]",
+        ".part-number",
+        ".model-number",
+        ".catalog-number",
+        ".item-number",
+        ".sku-number",
+        "[id*='part-number']",
+        "[id*='model-number']",
+        ".mpn",
+        "[data-test*='part']",
+        ".product-code",
+        ".catalog-no",
+        ".item-code"
+      ]
+    },
+    "sku_id": {
+      "enabled": true,
+      "selectors": [
+        "[data-sku]",
+        ".sku",
+        ".sku-number",
+        ".item-code",
+        ".product-code",
+        ".sku-code",
+        "[id*='sku']",
+        "[class*='sku']",
+        "[data-test*='sku']",
+        ".product-id",
+        ".item-id"
+      ]
+    }
+  },
+  "medical_lab_specific": {
+    "enabled": true,
+    "additional_selectors": {
+      "specifications": [
+        ".specifications",
+        ".product-specs",
+        ".technical-specs",
+        ".product-details",
+        ".specs-table",
+        ".product-attributes"
+      ],
+      "certifications": [
+        ".certifications",
+        ".certification",
+        ".compliance",
+        ".standards",
+        ".approvals"
+      ],
+      "capacity_volume": [
+        "[class*='capacity']",
+        "[class*='volume']",
+        "[class*='size']",
+        ".capacity",
+        ".volume",
+        ".size"
+      ]
+    }
+  },
+  "ollama": {
+    "host": "http://localhost:11434",
+    "model": "mistral:latest",
+    "temperature": 0.1,
+    "max_tokens": 1500
+  },
+  "crawl4ai": {
+    "browser": {
+      "headless": true,
+      "viewport_width": 1280,
+      "viewport_height": 720,
+      "timeout": 45000
+    },
+    "extraction": {
+      "cache_mode": "bypass",
+      "ignore_links": true
+    }
+  }
+}

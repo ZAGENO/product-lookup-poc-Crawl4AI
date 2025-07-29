@@ -1,0 +1,94 @@
+{
+  "extraction_strategies": {
+    "fishersci": {
+      "sku_selectors": [
+        "[data-product-id]",
+        ".product-id",
+        ".catalog-number",
+        "[data-catalog-number]"
+      ],
+      "part_number_selectors": [
+        ".part-number",
+        ".model-number",
+        ".catalog-number",
+        "[data-part-number]"
+      ],
+      "price_selectors": [
+        ".price-current",
+        ".current-price",
+        ".product-price",
+        "[data-price]"
+      ]
+    },
+    "sigmaaldrich": {
+      "sku_selectors": [
+        ".product-code",
+        ".catalog-number",
+        "[data-product-code]"
+      ],
+      "part_number_selectors": [
+        ".part-number",
+        ".catalog-number",
+        ".product-code"
+      ],
+      "price_selectors": [
+        ".price",
+        ".product-price",
+        ".current-price"
+      ]
+    },
+    "thermofisher": {
+      "sku_selectors": [
+        ".product-id",
+        ".catalog-number",
+        "[data-product-id]"
+      ],
+      "part_number_selectors": [
+        ".part-number",
+        ".model-number",
+        ".catalog-number"
+      ],
+      "price_selectors": [
+        ".price",
+        ".product-price",
+        ".current-price"
+      ]
+    }
+  },
+  "product_patterns": {
+    "pipette_tips": {
+      "volume_patterns": [
+        "\\d{1,3}[\\.\\d]*\\s*[µμ]?[Ll]",
+        "\\d{1,3}[\\.\\d]*\\s*microliter",
+        "\\d{1,3}[\\.\\d]*\\s*milliliter"
+      ],
+      "capacity_patterns": [
+        "\\d{1,3}[\\.\\d]*\\s*[µμ]?[Ll]",
+        "capacity.*\\d{1,3}[\\.\\d]*\\s*[µμ]?[Ll]"
+      ]
+    },
+    "lab_equipment": {
+      "model_patterns": [
+        "[A-Z]{2,4}\\d{3,6}[A-Z]?",
+        "\\d{3,4}-\\d{3,4}",
+        "[A-Z]+\\d{2,4}[A-Z]?"
+      ]
+    }
+  },
+  "validation_rules": {
+    "sku_id": {
+      "min_length": 2,
+      "max_length": 25,
+      "required_chars": ["A-Z", "0-9"]
+    },
+    "part_number": {
+      "min_length": 2,
+      "max_length": 30,
+      "required_chars": ["A-Z", "0-9", "-", "/", "."]
+    },
+    "price": {
+      "pattern": "^\\$?\\d+[,\\d]*\\.?\\d*$",
+      "min_value": 0.01
+    }
+  }
+}
