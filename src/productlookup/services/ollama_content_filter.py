@@ -96,12 +96,14 @@ class OllamaContentFilter:
         CRITICAL EXTRACTION RULES FOR MEDICAL/LAB PRODUCTS:
 
         1. SKU ID (Stock Keeping Unit):
-           - Look for: SKU, Item #, Product Code, Catalog Number, Product ID
-           - Common formats: ABC123, 123456, ABC-123, 123-456
+       - Look for: SKU, Item #, Product Code, Catalog Number, Product ID
+       - Also check for product identifiers in JavaScript blocks, such as 'item_id', 'psku', 'product_id', or similar keys, even if not visible on the page.
+       - Common formats: ABC123, 123456, ABC-123, 123-456
 
         2. Part Number:
-           - Look for: Part #, Model #, Catalog Number, Item Number, MPN (Manufacturer Part Number)
-           - Common formats: 960A/10, 0.1-10uL, TIP-123, ABC123
+       - Look for: Part #, Model #, Catalog Number, Item Number, MPN (Manufacturer Part Number)
+       - Also check for part numbers in JavaScript or data attributes.
+       - Common formats: 960A/10, 0.1-10uL, TIP-123, ABC123
 
         3. Brand/Manufacturer:
            - Look for: Brand name, Manufacturer, Company name
