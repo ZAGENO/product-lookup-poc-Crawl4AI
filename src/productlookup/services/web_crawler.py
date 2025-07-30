@@ -169,7 +169,7 @@ class WebCrawlerService:
         self.run_config = CrawlerRunConfig(
             markdown_generator=self.markdown_generator,
             extraction_strategy=self.extraction_strategy,
-            cache_mode=CacheMode.BYPASS,  # Disable caching for fresh results
+            cache_mode=CacheMode.BYPASS,
         )
 
     def _create_extraction_strategy(self):
@@ -195,28 +195,38 @@ class WebCrawlerService:
                     if isinstance(selectors, str):
                         selectors = [selectors]
 
-                    fields.append({
+                    # Create individual field entries for each selector to improve matching
+                    field_entry = {
                         "name": strategy_field,
-                        "selector": selectors,
-                        "type": "text"
-                    })
+                        "selector": " | ".join(selectors),  # Use CSS selector union
+                        "type": "text",
+                        "attribute": "text"  # Explicitly specify we want text content
+                    }
+                    fields.append(field_entry)
 
         # Add medical/lab specific fields if enabled
         if self.extraction_config.get("medical_lab_specific", {}).get("enabled", False):
             additional_fields = self.extraction_config["medical_lab_specific"]["additional_selectors"]
             for field_name, selectors in additional_fields.items():
-                fields.append({
-                    "name": field_name,
-                    "selector": selectors,
-                    "type": "text"
-                })
+                if isinstance(selectors, list):
+                    field_entry = {
+                        "name": field_name,
+                        "selector": " | ".join(selectors),
+                        "type": "text",
+                        "attribute": "text"
+                    }
+                    fields.append(field_entry)
 
+        # Create a more robust schema
         schema = {
             "name": "ProductData",
-            "baseSelector": "body",  # Start from body to capture all fields
-            "fields": fields
+            "baseSelector": "body",
+            "fields": fields,
+            "many": False  # We want a single object, not an array
         }
 
+        self.logger.info(f"Created extraction schema with {len(fields)} fields: {[f['name'] for f in fields]}")
+        self.logger.debug(f"Full schema: {schema}")
         return JsonCssExtractionStrategy(schema)
 
     def _get_site_specific_selectors(self, url: str) -> Dict[str, List[str]]:
@@ -326,18 +336,43 @@ class WebCrawlerService:
             # Extract data from the crawl result
             extracted_data = {}
 
-            # Get extracted content from JSON strategy
+            # Handle different types of extracted_content
             if result.extracted_content:
-                # Handle the case where extracted_content is a list
-                if isinstance(result.extracted_content, list) and result.extracted_content:
-                    extracted_data = result.extracted_content[0]  # Take the first item
-                    self.logger.info(f"Extracted data from list: {extracted_data}")
+                self.logger.info(f"Extracted content type: {type(result.extracted_content)}")
+
+                if isinstance(result.extracted_content, str):
+                    # If it's a string, try to parse it as JSON
+                    try:
+                        parsed_data = json.loads(result.extracted_content)
+                        self.logger.info("Successfully parsed JSON from string extracted_content")
+
+                        # Handle the parsed data which could be a list or dict
+                        if isinstance(parsed_data, list) and parsed_data:
+                            extracted_data = parsed_data[0] if isinstance(parsed_data[0], dict) else {}
+                            self.logger.info(f"Extracted data from parsed JSON list: {extracted_data}")
+                        elif isinstance(parsed_data, dict):
+                            extracted_data = parsed_data
+                            self.logger.info(f"Extracted data from parsed JSON dict: {extracted_data}")
+                        else:
+                            extracted_data = {}
+                            self.logger.warning(f"Parsed JSON has unexpected type: {type(parsed_data)}")
+                    except json.JSONDecodeError:
+                        self.logger.warning("Failed to parse extracted_content as JSON, using markdown fallback")
+                        extracted_data = {}
+                elif isinstance(result.extracted_content, list) and result.extracted_content:
+                    # Handle direct list response
+                    if isinstance(result.extracted_content[0], dict):
+                        extracted_data = result.extracted_content[0]  # Take the first item
+                        self.logger.info(f"Extracted data from direct list: {extracted_data}")
+                    else:
+                        extracted_data = {}
+                        self.logger.warning(f"List contains non-dict items: {type(result.extracted_content[0])}")
                 elif isinstance(result.extracted_content, dict):
                     extracted_data = result.extracted_content
                     self.logger.info(f"Extracted data from dict: {extracted_data}")
                 else:
                     extracted_data = {}
-                    self.logger.info(f"Unexpected extracted_content type: {type(result.extracted_content)}")
+                    self.logger.warning(f"Unexpected extracted_content type: {type(result.extracted_content)}")
             else:
                 self.logger.warning("No extracted_content found in result")
 
@@ -393,6 +428,12 @@ class WebCrawlerService:
             sku_id = self._clean_and_validate_field(sku_id, "sku_id")
             part_number = self._clean_and_validate_field(part_number, "part_number")
             price = self._clean_and_validate_price(price)
+
+            self.logger.info(f"Raw extracted data: {extracted_data}")
+            self.logger.info(
+                f"Final fields - sku_id: {sku_id}, part_number: {part_number}, product_name: {product_name}, "
+                f"brand: {brand}, price: {price}, description: {description}"
+            )
 
             return product_search_pb2.ProductData(
                 sku_id=sku_id,
@@ -504,15 +545,20 @@ class WebCrawlerService:
 
     def _extract_field(self, data: Dict, field_name: str, fallback: str) -> str:
         """Extract field from data with fallback"""
-        if not data:
+        if not data or not isinstance(data, dict):
+            self.logger.debug(f"Data is not a valid dict for field {field_name}: {type(data)}")
             return fallback
 
         # Handle both single values and arrays
         value = data.get(field_name)
         if isinstance(value, list) and value:
-            return str(value[0])
-        elif value:
-            return str(value)
+            # Take the first non-empty value from the list
+            for item in value:
+                if item and str(item).strip():
+                    return str(item).strip()
+            return fallback
+        elif value and str(value).strip():
+            return str(value).strip()
         else:
             return fallback
 

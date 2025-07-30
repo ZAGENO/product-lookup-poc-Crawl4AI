@@ -9,9 +9,11 @@
         "[data-testid='product-title']",
         ".product-heading",
         ".item-name",
-        "h1",
+        "h1[class*='product']",
+        "h1[class*='title']",
         ".product-name",
-        ".product-title"
+        ".product-title",
+        "h1"
       ]
     },
     "brand": {
@@ -26,7 +28,8 @@
         ".company-name",
         ".manufacturer-name",
         "[class*='brand']",
-        "[class*='manufacturer']"
+        "[class*='manufacturer']",
+        "[data-brand]"
       ]
     },
     "price": {
@@ -40,8 +43,10 @@
         "[data-testid='price']",
         ".sale-price",
         ".price-value",
-        "[class*='price']",
-        ".cost"
+        "[class*='price']:not(.price-old):not(.price-was)",
+        ".cost",
+        "[data-price]",
+        ".price-now"
       ]
     },
     "description": {
@@ -55,7 +60,8 @@
         ".item-description",
         ".product-info",
         ".specifications",
-        ".features"
+        ".features",
+        "[data-testid='description']"
       ]
     },
     "part_number": {
@@ -73,7 +79,9 @@
         "[data-test*='part']",
         ".product-code",
         ".catalog-no",
-        ".item-code"
+        ".item-code",
+        "[class*='part-number']",
+        "[class*='model-number']"
       ]
     },
     "sku_id": {
@@ -89,7 +97,9 @@
         "[class*='sku']",
         "[data-test*='sku']",
         ".product-id",
-        ".item-id"
+        ".item-id",
+        "[data-product-id]",
+        "[data-item-id]"
       ]
     }
   },
@@ -102,14 +112,16 @@
         ".technical-specs",
         ".product-details",
         ".specs-table",
-        ".product-attributes"
+        ".product-attributes",
+        "[data-testid='specifications']"
       ],
       "certifications": [
         ".certifications",
         ".certification",
         ".compliance",
         ".standards",
-        ".approvals"
+        ".approvals",
+        "[data-testid='certifications']"
       ],
       "capacity_volume": [
         "[class*='capacity']",
@@ -117,8 +129,59 @@
         "[class*='size']",
         ".capacity",
         ".volume",
-        ".size"
+        ".size",
+        "[data-capacity]",
+        "[data-volume]"
       ]
+    }
+  },
+  "extraction_strategies": {
+    "thermofisher.com": {
+      "sku_selectors": [
+        "[data-product-id]",
+        ".catalog-number",
+        ".product-code"
+      ],
+      "part_number_selectors": [
+        ".part-number",
+        ".catalog-number",
+        "[data-part-number]"
+      ],
+      "price_selectors": [
+        ".price-current",
+        ".product-price",
+        "[data-price]"
+      ]
+    },
+    "sigmaaldrich.com": {
+      "sku_selectors": [
+        ".product-number",
+        ".catalog-number",
+        "[data-product-number]"
+      ],
+      "part_number_selectors": [
+        ".product-number",
+        ".catalog-number"
+      ],
+      "price_selectors": [
+        ".price",
+        ".product-price"
+      ]
+    }
+  },
+  "validation_rules": {
+    "sku_id": {
+      "min_length": 3,
+      "max_length": 50,
+      "pattern": "^[A-Za-z0-9\\-_/\\.\\s]+$"
+    },
+    "part_number": {
+      "min_length": 2,
+      "max_length": 50,
+      "pattern": "^[A-Za-z0-9\\-_/\\.\\s]+$"
+    },
+    "price": {
+      "pattern": "^\\$?\\d+([,\\d]*\\.?\\d*)?(\\s*(USD|usd))?$"
     }
   },
   "ollama": {
@@ -136,7 +199,9 @@
     },
     "extraction": {
       "cache_mode": "bypass",
-      "ignore_links": true
+      "ignore_links": true,
+      "wait_for_selector": "body",
+      "wait_timeout": 10000
     }
   }
 }
