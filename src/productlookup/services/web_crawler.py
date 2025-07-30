@@ -1,12 +1,9 @@
-# services/web_crawler.py
 import logging
 import asyncio
 import os
 import json
-import re
-from typing import Dict, Any, Optional, List
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, DefaultMarkdownGenerator
-from crawl4ai import JsonCssExtractionStrategy
+from typing import List
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, JsonCssExtractionStrategy
 from productlookup.exceptions import ProductLookupError
 from productlookup.protos import product_search_pb2
 from productlookup.services.ollama_content_filter import OllamaContentFilter
@@ -15,616 +12,316 @@ logger = logging.getLogger(__name__)
 
 
 class WebCrawlerService:
-    """Enhanced service for crawling medical/lab product pages using crawl4ai"""
+    """Simple config-driven web crawler using crawl4ai"""
 
     def __init__(self):
-        """Initialize the web crawler service"""
         self.logger = logging.getLogger(__name__)
         self.crawler = None
-
-        # Load config from file
-        self._load_extraction_config()
-
-        # Initialize crawl4ai components
-        self._setup_crawl4ai()
-
-        # Medical/lab specific patterns
-        self._setup_medical_patterns()
-
-        # Load site-specific strategies and validation rules
-        self._load_site_specific_strategies()
-        self._load_validation_rules()
-
-    def _load_extraction_config(self):
-        """Load extraction configuration from environment variables"""
-        config_path = os.getenv("CRAWLER_CONFIG_PATH")
-
-        if not config_path:
-            raise ProductLookupError("CRAWLER_CONFIG_PATH environment variable is not set")
-
-        if not os.path.exists(config_path):
-            raise ProductLookupError(f"Extraction config file not found at: {config_path}")
-
-        try:
-            with open(config_path, 'r') as f:
-                self.extraction_config = json.load(f)
-                self.logger.info(f"Loaded extraction config from {config_path}")
-        except Exception as e:
-            raise ProductLookupError(f"Failed to load extraction config: {str(e)}")
-
-    def _setup_medical_patterns(self):
-        """Setup patterns specific to medical/lab equipment"""
-        self.medical_patterns = {
-            'sku_patterns': [
-                r'[A-Z]{2,4}\d{3,6}[A-Z]?',  # e.g., BMSP7700T10M
-                r'\d{6,8}',  # e.g., 02681437
-                r'[A-Z]+\d+[A-Z]+',  # e.g., ABC123DEF
-                r'\d{3,4}-\d{3,4}',  # e.g., 123-456
-            ],
-            'part_number_patterns': [
-                r'\d{3,4}[A-Z]?/\d{1,3}',  # e.g., 960A/10
-                r'[A-Z]+\d{2,4}[A-Z]?',  # e.g., ABC123
-                r'\d{1,2}\.\d{1,2}-\d{1,2}[A-Z]?[L|ul]',  # e.g., 0.1-10uL
-                r'[A-Z]+-\d{3,4}',  # e.g., TIP-123
-            ],
-            'volume_patterns': [
-                r'\d{1,3}[\.\d]*\s*[µμ]?[Ll]',  # e.g., 10µL, 100mL
-                r'\d{1,3}[\.\d]*\s*microliter',
-                r'\d{1,3}[\.\d]*\s*milliliter',
-            ],
-            'price_patterns': [
-                r'\$\d+[,\d]*\.?\d*',  # e.g., $161.70
-                r'\$\s*\d+[,\d]*\.?\d*',  # e.g., $ 161.70
-                r'\d+[,\d]*\.?\d*\s*USD',
-            ]
-        }
-
-        # Load additional patterns from config file if available
-        self._load_additional_patterns()
-
-    def _load_additional_patterns(self):
-        """Load additional patterns from medical_lab_config.json"""
-        try:
-            config_path = os.getenv("MEDICAL_LAB_CONFIG_PATH", "src/productlookup/config/medical_lab_config.json")
-            if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
-                    config = json.load(f)
-
-                # Load product patterns
-                if "product_patterns" in config:
-                    for category, patterns in config["product_patterns"].items():
-                        for pattern_type, pattern_list in patterns.items():
-                            # Convert JSON escaped patterns to Python regex patterns
-                            python_patterns = []
-                            for pattern in pattern_list:
-                                # Convert escaped patterns back to Python regex format
-                                python_pattern = pattern.replace('\\\\', '\\')
-                                python_patterns.append(python_pattern)
-
-                            # Add to medical patterns
-                            if category not in self.medical_patterns:
-                                self.medical_patterns[category] = {}
-                            self.medical_patterns[category][pattern_type] = python_patterns
-
-                self.logger.info(f"Loaded additional patterns from {config_path}")
-        except Exception as e:
-            self.logger.warning(f"Failed to load additional patterns: {str(e)}")
-
-    def _load_site_specific_strategies(self):
-        """Load site-specific extraction strategies from medical_lab_config.json"""
-        try:
-            config_path = os.getenv("MEDICAL_LAB_CONFIG_PATH", "src/productlookup/config/medical_lab_config.json")
-            if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
-                    config = json.load(f)
-
-                if "extraction_strategies" in config:
-                    self.site_strategies = config["extraction_strategies"]
-                    self.logger.info(f"Loaded site-specific strategies for {len(self.site_strategies)} sites")
-                else:
-                    self.site_strategies = {}
-        except Exception as e:
-            self.logger.warning(f"Failed to load site-specific strategies: {str(e)}")
-            self.site_strategies = {}
-
-    def _load_validation_rules(self):
-        """Load validation rules from medical_lab_config.json"""
-        try:
-            config_path = os.getenv("MEDICAL_LAB_CONFIG_PATH", "src/productlookup/config/medical_lab_config.json")
-            if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
-                    config = json.load(f)
-
-                if "validation_rules" in config:
-                    self.validation_rules = config["validation_rules"]
-                    self.logger.info(f"Loaded validation rules for {len(self.validation_rules)} fields")
-                else:
-                    self.validation_rules = {}
-        except Exception as e:
-            self.logger.warning(f"Failed to load validation rules: {str(e)}")
-            self.validation_rules = {}
-
-    def _setup_crawl4ai(self):
-        """Setup crawl4ai components"""
-        # Browser configuration
-        self.browser_config = BrowserConfig(
-            headless=True,
-            viewport_width=1280,
-            viewport_height=720
-        )
-
-        # Create extraction strategy from config
-        self.extraction_strategy = self._create_extraction_strategy()
-
-        # Create Ollama content filter
         self.content_filter = OllamaContentFilter()
+        self._load_config()
+        self._setup_extraction_strategy()
 
-        # Create markdown generator
-        self.markdown_generator = DefaultMarkdownGenerator(
-            content_filter=self.content_filter,
-            options={"ignore_links": True}
-        )
+    def _load_config(self):
+        """Load simple extraction configuration"""
+        config_path = os.getenv("CRAWLER_CONFIG_PATH", "config/crawler_config.json")
 
-        # Create crawler run configuration
-        self.run_config = CrawlerRunConfig(
-            markdown_generator=self.markdown_generator,
-            extraction_strategy=self.extraction_strategy,
-            cache_mode=CacheMode.BYPASS,
-        )
+        try:
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    self.config = json.load(f)
+                    self.logger.info(f"Loaded config from {config_path}")
+            else:
+                self.logger.warning(f"Config file not found at {config_path}, using default config")
+                self.config = {}
+        except Exception as e:
+            self.logger.error(f"Error loading config: {str(e)}, using default config")
+            self.config = {}
 
-    def _create_extraction_strategy(self):
-        """Create enhanced JSON CSS extraction strategy from config"""
+        # Ensure selectors exist in config
+        if "selectors" not in self.config:
+            self.logger.info("Using default selectors configuration")
+            self.config["selectors"] = {
+                "sku_id": [".sku", "[data-sku]", ".product-code", ".item-code", ".sku-number", "[class*='sku']"],
+                "part_number": [".part-number", "[data-part-number]", ".model-number", ".catalog-number",
+                                ".item-number"],
+                "brand": [".brand", ".manufacturer", "[data-brand]", ".company-name", ".vendor"],
+                "description": [".description", ".product-description", ".product-summary", ".product-details"]
+            }
+
+        self.logger.info(
+            f"Loaded config with {len(self.config['selectors'])} field types: {list(self.config['selectors'].keys())}")
+
+    def _setup_extraction_strategy(self):
+        """Setup JSON CSS extraction strategy from config - ENHANCED VERSION"""
         fields = []
 
-        # Map config fields to extraction strategy fields
-        field_mapping = {
-            "title": "product_name",
-            "brand": "brand",
-            "price": "price",
-            "description": "description",
-            "part_number": "part_number",
-            "sku_id": "sku_id"
-        }
+        for field_name, selectors in self.config["selectors"].items():
+            selector_chain = []
+            for selector in selectors:
+                selector_chain.append(f"{selector}")
+            fields.append({
+                "name": field_name,
+                "selector": ", ".join(selector_chain),  # OR logic
+                "type": "text",
+                "attribute": "text"
+            })
 
-        for config_field, strategy_field in field_mapping.items():
-            if config_field in self.extraction_config["fields"]:
-                field_config = self.extraction_config["fields"][config_field]
-                if field_config.get("enabled", False):
-                    # Handle both single selector and array of selectors
-                    selectors = field_config["selectors"]
-                    if isinstance(selectors, str):
-                        selectors = [selectors]
-
-                    # Create individual field entries for each selector to improve matching
-                    field_entry = {
-                        "name": strategy_field,
-                        "selector": " | ".join(selectors),  # Use CSS selector union
-                        "type": "text",
-                        "attribute": "text"  # Explicitly specify we want text content
-                    }
-                    fields.append(field_entry)
-
-        # Add medical/lab specific fields if enabled
-        if self.extraction_config.get("medical_lab_specific", {}).get("enabled", False):
-            additional_fields = self.extraction_config["medical_lab_specific"]["additional_selectors"]
-            for field_name, selectors in additional_fields.items():
-                if isinstance(selectors, list):
-                    field_entry = {
-                        "name": field_name,
-                        "selector": " | ".join(selectors),
-                        "type": "text",
-                        "attribute": "text"
-                    }
-                    fields.append(field_entry)
-
-        # Create a more robust schema
         schema = {
             "name": "ProductData",
             "baseSelector": "body",
             "fields": fields,
-            "many": False  # We want a single object, not an array
+            "description": "Extract product information from web pages"
         }
 
-        self.logger.info(f"Created extraction schema with {len(fields)} fields: {[f['name'] for f in fields]}")
-        self.logger.debug(f"Full schema: {schema}")
+        self.extraction_strategy = JsonCssExtractionStrategy(schema)
+        self.logger.info(f"Created extraction strategy with fields: {[f['name'] for f in fields]}")
+        for field in fields:
+            self.logger.debug(f"Field '{field['name']}' selectors: {field['selector']}")
+
+    def _create_fallback_extraction_strategy(self):
+        """Create a simpler fallback extraction strategy for difficult sites"""
+        fallback_selectors = {
+            "sku_id": "h1, .title, [class*='product'] [class*='name'], [id*='product']",
+            "part_number": "h1, .title, [class*='model'], [class*='part'], [class*='item']",
+            "brand": "[class*='brand'], [class*='manufacturer'], [class*='company']",
+            "description": "p, [class*='description'], [class*='summary'], [class*='detail']"
+        }
+        fields = []
+        for field_name, selector in fallback_selectors.items():
+            fields.append({
+                "name": field_name,
+                "selector": selector,
+                "type": "text"
+            })
+        schema = {
+            "name": "FallbackProductData",
+            "baseSelector": "body",
+            "fields": fields
+        }
         return JsonCssExtractionStrategy(schema)
 
-    def _get_site_specific_selectors(self, url: str) -> Dict[str, List[str]]:
-        """Get site-specific selectors based on URL"""
-        for site_name, strategies in self.site_strategies.items():
-            if site_name.lower() in url.lower():
-                return strategies
-        return {}
-
-    def _validate_field_with_rules(self, value: str, field_type: str) -> bool:
-        """Validate field using rules from medical_lab_config.json"""
-        if field_type not in self.validation_rules:
-            return True  # No rules defined, accept any value
-
-        rules = self.validation_rules[field_type]
-
-        # Check length constraints
-        if "min_length" in rules and len(value) < rules["min_length"]:
-            return False
-        if "max_length" in rules and len(value) > rules["max_length"]:
-            return False
-
-        # For SKU and part number, be more lenient with character requirements
-        if field_type in ["sku_id", "part_number"]:
-            # Only check if there's at least one alphanumeric character
-            if not re.search(r'[A-Za-z0-9]', value):
-                return False
-
-            # Allow common medical/lab product characters
-            allowed_chars = r'[A-Za-z0-9\-/\.\s]+'
-            if not re.match(f'^{allowed_chars}$', value):
-                return False
-
-        # For price, use the pattern validation
-        elif field_type == "price":
-            if "pattern" in rules:
-                pattern = rules["pattern"].replace('\\\\', '\\')
-                if not re.match(pattern, value):
-                    return False
-
-        return True
-
     async def initialize(self):
-        """Initialize the crawl4ai crawler"""
+        """Initialize the crawler"""
         if not self.crawler:
-            self.crawler = AsyncWebCrawler(config=self.browser_config)
+            browser_config = BrowserConfig(headless=True)
+            self.crawler = AsyncWebCrawler(config=browser_config)
             await self.crawler.__aenter__()
-            self.logger.info("Initialized crawl4ai crawler")
+            self.logger.info("Crawler initialized")
 
     async def cleanup(self):
         """Cleanup the crawler"""
         if self.crawler:
             await self.crawler.__aexit__(None, None, None)
             self.crawler = None
-            self.logger.info("Cleaned up crawl4ai crawler")
+            self.logger.info("Crawler cleaned up")
 
     async def get_detailed_product_info(self, products: List[product_search_pb2.ProductData]) -> List[
         product_search_pb2.ProductData]:
-        """Scrape detailed information from each product URL using crawl4ai"""
+        """Main scraping method"""
         if not self.crawler:
             await self.initialize()
 
         enriched_products = []
-        batch_size = 2  # Reduced batch size for better reliability
 
-        # Process products in batches
-        for i in range(0, len(products), batch_size):
-            batch = products[i:i + batch_size]
-            batch_results = []
+        for i, product in enumerate(products):
+            self.logger.info(f"[{i + 1}/{len(products)}] Scraping: {product.product_url}")
 
-            for product in batch:
-                try:
-                    self.logger.info(f"Scraping details for: {product.product_url}")
+            try:
+                # Step 1: Crawl with extraction strategy
+                run_config = CrawlerRunConfig(
+                    extraction_strategy=self.extraction_strategy,
+                    cache_mode=CacheMode.BYPASS
+                )
 
-                    # Use crawl4ai to crawl the page
-                    result = await self.crawler.arun(
-                        url=product.product_url,
-                        config=self.run_config
-                    )
+                result = await self.crawler.arun(
+                    url=product.product_url,
+                    config=run_config
+                )
 
-                    if result.success:
-                        enriched_product = await self._process_crawl_result(product, result)
-                        batch_results.append(enriched_product)
+                if result.success:
+                    self.logger.info("=" * 80)
+                    self.logger.info(f"CRAWLING SUCCESSFUL FOR: {product.product_url}")
+
+                    # Step 2: Extract data from crawl4ai result
+                    scraped_data = self._extract_scraped_data(result)
+
+                    self.logger.info("SCRAPED DATA (Before LLM Verification):")
+                    self.logger.info(f"  SKU ID: '{scraped_data.get('sku_id', 'EMPTY')}'")
+                    self.logger.info(f"  Part Number: '{scraped_data.get('part_number', 'EMPTY')}'")
+                    self.logger.info(f"  Brand: '{scraped_data.get('brand', 'EMPTY')}'")
+                    self.logger.info(
+                        f"  Description: '{scraped_data.get('description', 'EMPTY')[:100]}{'...' if len(scraped_data.get('description', '')) > 100 else ''}'")
+
+                    # Step 3: Use LLM to verify and clean the data
+                    self.logger.info("Sending data to LLM for verification...")
+                    verified_data = await self._verify_with_llm(scraped_data, result.markdown, product)
+
+                    self.logger.info("VERIFIED DATA (After LLM Processing):")
+                    self.logger.info(f"  SKU ID: '{verified_data.get('sku_id', 'EMPTY')}'")
+                    self.logger.info(f"  Part Number: '{verified_data.get('part_number', 'EMPTY')}'")
+                    self.logger.info(f"  Brand: '{verified_data.get('brand', 'EMPTY')}'")
+                    self.logger.info(
+                        f"  Description: '{verified_data.get('description', 'EMPTY')[:100]}{'...' if len(verified_data.get('description', '')) > 100 else ''}'")
+
+                    # Log changes made by LLM
+                    changes_made = []
+                    for field in ['sku_id', 'part_number', 'brand', 'description']:
+                        scraped_val = scraped_data.get(field, '')
+                        verified_val = verified_data.get(field, '')
+                        if scraped_val != verified_val:
+                            changes_made.append(f"{field}: '{scraped_val}' → '{verified_val}'")
+
+                    if changes_made:
+                        self.logger.info("LLM CHANGES MADE:")
+                        for change in changes_made:
+                            self.logger.info(f"  {change}")
                     else:
-                        self.logger.error(f"Failed to crawl {product.product_url}: {result.error_message}")
-                        # Try fallback extraction
-                        fallback_product = await self._fallback_extraction(product, result)
-                        batch_results.append(fallback_product)
+                        self.logger.info("LLM MADE NO CHANGES - Data was already correct")
 
-                except Exception as e:
-                    self.logger.error(f"Error crawling {product.product_url}: {str(e)}")
-                    batch_results.append(self._create_error_product(product))
+                    # Step 4: Create final product
+                    final_product = self._create_final_product(verified_data, product)
+                    enriched_products.append(final_product)
+                    self.logger.info("=" * 80)
 
-            # Add all results from this batch
-            enriched_products.extend(batch_results)
+                else:
+                    self.logger.error(f"Crawl failed: {result.error_message}")
+                    enriched_products.append(self._create_fallback_product(product))
 
-            # Add delay between batches if not the last batch
-            if i + batch_size < len(products):
-                await asyncio.sleep(3)  # Increased delay between batches
+            except Exception as e:
+                self.logger.error(f"Error processing {product.product_url}: {str(e)}")
+                enriched_products.append(self._create_fallback_product(product))
+
+            # Small delay between requests
+            await asyncio.sleep(1)
 
         return enriched_products
 
-    async def _process_crawl_result(self, original_product: product_search_pb2.ProductData,
-                                    result) -> product_search_pb2.ProductData:
-        """Process crawl4ai result and extract product information with enhanced logic"""
-        try:
-            # Extract data from the crawl result
-            extracted_data = {}
+    def _extract_scraped_data(self, result):
+        """Extract data from crawl4ai result - FIXED VERSION"""
+        scraped_data = {
+            "sku_id": "",
+            "part_number": "",
+            "brand": "",
+            "description": ""
+        }
 
-            # Handle different types of extracted_content
-            if result.extracted_content:
-                self.logger.info(f"Extracted content type: {type(result.extracted_content)}")
+        self.logger.debug(f"Raw extracted_content type: {type(result.extracted_content)}")
+        self.logger.debug(f"Raw extracted_content: {result.extracted_content}")
 
+        if result.extracted_content:
+            try:
+                extracted = None
+
+                # Handle different response types
                 if isinstance(result.extracted_content, str):
-                    # If it's a string, try to parse it as JSON
-                    try:
-                        parsed_data = json.loads(result.extracted_content)
-                        self.logger.info("Successfully parsed JSON from string extracted_content")
-
-                        # Handle the parsed data which could be a list or dict
-                        if isinstance(parsed_data, list) and parsed_data:
-                            extracted_data = parsed_data[0] if isinstance(parsed_data[0], dict) else {}
-                            self.logger.info(f"Extracted data from parsed JSON list: {extracted_data}")
-                        elif isinstance(parsed_data, dict):
-                            extracted_data = parsed_data
-                            self.logger.info(f"Extracted data from parsed JSON dict: {extracted_data}")
+                    self.logger.debug("Parsing string extracted_content as JSON")
+                    extracted = json.loads(result.extracted_content)
+                elif isinstance(result.extracted_content, list):
+                    self.logger.debug(f"Got list with {len(result.extracted_content)} items")
+                    if result.extracted_content:
+                        # Take the first item if it exists
+                        first_item = result.extracted_content[0]
+                        if isinstance(first_item, dict):
+                            extracted = first_item
+                        elif isinstance(first_item, str):
+                            try:
+                                extracted = json.loads(first_item)
+                            except json.JSONDecodeError:
+                                self.logger.warning("First list item is not valid JSON")
+                                extracted = {}
                         else:
-                            extracted_data = {}
-                            self.logger.warning(f"Parsed JSON has unexpected type: {type(parsed_data)}")
-                    except json.JSONDecodeError:
-                        self.logger.warning("Failed to parse extracted_content as JSON, using markdown fallback")
-                        extracted_data = {}
-                elif isinstance(result.extracted_content, list) and result.extracted_content:
-                    # Handle direct list response
-                    if isinstance(result.extracted_content[0], dict):
-                        extracted_data = result.extracted_content[0]  # Take the first item
-                        self.logger.info(f"Extracted data from direct list: {extracted_data}")
+                            self.logger.warning(f"First list item is unexpected type: {type(first_item)}")
+                            extracted = {}
                     else:
-                        extracted_data = {}
-                        self.logger.warning(f"List contains non-dict items: {type(result.extracted_content[0])}")
+                        self.logger.warning("Empty list in extracted_content")
+                        extracted = {}
                 elif isinstance(result.extracted_content, dict):
-                    extracted_data = result.extracted_content
-                    self.logger.info(f"Extracted data from dict: {extracted_data}")
+                    self.logger.debug("Using dict extracted_content directly")
+                    extracted = result.extracted_content
                 else:
-                    extracted_data = {}
                     self.logger.warning(f"Unexpected extracted_content type: {type(result.extracted_content)}")
-            else:
-                self.logger.warning("No extracted_content found in result")
+                    extracted = {}
 
-            # Get cleaned markdown content
-            markdown_content = result.markdown if result.markdown else ""
+                self.logger.debug(f"Parsed extracted data: {extracted}")
 
-            # Get site-specific selectors if available
-            site_selectors = self._get_site_specific_selectors(original_product.product_url)
+                # Extract each field, handling nested structures
+                for field_name in scraped_data.keys():
+                    value = extracted.get(field_name, "")
 
-            # Extract product information with enhanced fallbacks
-            sku_id = self._extract_field_with_patterns(extracted_data, "sku_id", original_product.sku_id,
-                                                       markdown_content, "sku_patterns")
-            part_number = self._extract_field_with_patterns(extracted_data, "part_number", original_product.part_number,
-                                                            markdown_content, "part_number_patterns")
-            product_name = self._extract_field(extracted_data, "product_name", original_product.product_name)
-            brand = self._extract_field(extracted_data, "brand", original_product.brand)
-            price = self._extract_field_with_patterns(extracted_data, "price", original_product.price, markdown_content,
-                                                      "price_patterns")
-            description = self._extract_field(extracted_data, "description", original_product.description)
+                    # Handle different value types
+                    if isinstance(value, list):
+                        # Take first non-empty value from list
+                        for item in value:
+                            if item and str(item).strip():
+                                value = str(item).strip()
+                                break
+                        else:
+                            value = ""
+                    elif isinstance(value, dict):
+                        # If it's a dict, try to get meaningful text
+                        if 'text' in value:
+                            value = str(value['text']).strip()
+                        elif 'value' in value:
+                            value = str(value['value']).strip()
+                        else:
+                            # Take first non-empty value from dict
+                            for v in value.values():
+                                if v and str(v).strip():
+                                    value = str(v).strip()
+                                    break
+                            else:
+                                value = ""
+                    else:
+                        value = str(value).strip() if value else ""
 
-            # Apply site-specific extraction if available
-            if site_selectors:
-                sku_id = self._apply_site_specific_extraction(sku_id, site_selectors.get("sku_selectors", []),
-                                                              markdown_content, "sku_id")
-                part_number = self._apply_site_specific_extraction(part_number,
-                                                                   site_selectors.get("part_number_selectors", []),
-                                                                   markdown_content, "part_number")
-                price = self._apply_site_specific_extraction(price, site_selectors.get("price_selectors", []),
-                                                             markdown_content, "price")
+                    scraped_data[field_name] = value
 
-            self.logger.info(
-                f"Extracted fields - sku_id: {sku_id}, part_number: {part_number}, product_name: {product_name}")
+                # Log what we actually extracted
+                self.logger.info("Raw CSS extraction results:")
+                for field, value in scraped_data.items():
+                    self.logger.info(f"  {field}: '{value}'")
 
-            # Use Ollama to further enrich if we have markdown content
-            if markdown_content:
-                try:
-                    enriched_data = await self.content_filter.enrich_content(markdown_content, original_product)
-                    self.logger.info(f"Ollama enriched data: {enriched_data}")
-                    # Merge Ollama results with extracted data, preferring extracted data
-                    sku_id = enriched_data.get("sku_id", sku_id) if sku_id == "Not found" else sku_id
-                    part_number = enriched_data.get("part_number",
-                                                    part_number) if part_number == "Not found" else part_number
-                    product_name = enriched_data.get("product_name",
-                                                     product_name) if product_name == "Not found" else product_name
-                    brand = enriched_data.get("brand", brand) if brand == "Not found" else brand
-                    price = enriched_data.get("price", price) if price == "Not found" else price
-                    description = enriched_data.get("description",
-                                                    description) if description == "Not found" else description
-                except Exception as e:
-                    self.logger.warning(f"Ollama enrichment failed: {str(e)}")
-
-            # Final validation and cleaning
-            sku_id = self._clean_and_validate_field(sku_id, "sku_id")
-            part_number = self._clean_and_validate_field(part_number, "part_number")
-            price = self._clean_and_validate_price(price)
-
-            self.logger.info(f"Raw extracted data: {extracted_data}")
-            self.logger.info(
-                f"Final fields - sku_id: {sku_id}, part_number: {part_number}, product_name: {product_name}, "
-                f"brand: {brand}, price: {price}, description: {description}"
-            )
-
-            return product_search_pb2.ProductData(
-                sku_id=sku_id,
-                part_number=part_number,
-                product_name=product_name or original_product.product_name,
-                brand=brand or original_product.brand or "Not found",
-                price=price,
-                description=description or original_product.description,
-                product_url=original_product.product_url
-            )
-
-        except Exception as e:
-            self.logger.error(f"Error processing crawl result: {str(e)}", exc_info=True)
-            return self._create_error_product(original_product)
-
-    def _apply_site_specific_extraction(self, current_value: str, selectors: List[str], content: str,
-                                        field_type: str) -> str:
-        """Apply site-specific extraction using selectors"""
-        if current_value and current_value != "Not found":
-            return current_value  # Already have a value, don't override
-
-        # For now, we'll use pattern matching since we don't have direct CSS selector access
-        # In a full implementation, you might want to re-crawl with site-specific selectors
-        for selector in selectors:
-            # Extract potential values from content based on selector patterns
-            if "data-" in selector:
-                # Look for data attributes in content
-                attr_name = selector.replace("[data-", "").replace("]", "")
-                pattern = rf'data-{attr_name}="([^"]+)"'
-                matches = re.findall(pattern, content)
-                if matches:
-                    return matches[0]
-            elif selector.startswith("."):
-                # Look for class-based content
-                class_name = selector.replace(".", "")
-                pattern = rf'class="[^"]*{class_name}[^"]*"[^>]*>([^<]+)'
-                matches = re.findall(pattern, content)
-                if matches:
-                    return matches[0].strip()
-
-        return current_value
-
-    async def _fallback_extraction(self, original_product: product_search_pb2.ProductData,
-                                   result) -> product_search_pb2.ProductData:
-        """Fallback extraction when primary extraction fails"""
-        try:
-            markdown_content = result.markdown if result.markdown else ""
-
-            if markdown_content:
-                # Try to extract using patterns from markdown content
-                sku_id = self._extract_from_text(markdown_content, "sku_patterns")
-                part_number = self._extract_from_text(markdown_content, "part_number_patterns")
-                price = self._extract_from_text(markdown_content, "price_patterns")
-
-                # Use Ollama as last resort
-                try:
-                    enriched_data = await self.content_filter.enrich_content(markdown_content, original_product)
-                    sku_id = enriched_data.get("sku_id", sku_id) if not sku_id else sku_id
-                    part_number = enriched_data.get("part_number", part_number) if not part_number else part_number
-                    price = enriched_data.get("price", price) if not price else price
-                except Exception as e:
-                    self.logger.warning(f"Ollama fallback failed: {str(e)}")
-
-                return product_search_pb2.ProductData(
-                    sku_id=sku_id or "Not found",
-                    part_number=part_number or "Not found",
-                    product_name=original_product.product_name,
-                    brand=original_product.brand or "Not found",
-                    price=price or "Not found",
-                    description=original_product.description,
-                    product_url=original_product.product_url
-                )
-
-            return self._create_error_product(original_product)
-
-        except Exception as e:
-            self.logger.error(f"Fallback extraction failed: {str(e)}")
-            return self._create_error_product(original_product)
-
-    def _extract_field_with_patterns(self, data: Dict, field_name: str, fallback: str,
-                                     markdown_content: str, pattern_key: str) -> str:
-        """Extract field from data with pattern matching fallback"""
-        # First try normal extraction
-        value = self._extract_field(data, field_name, fallback)
-
-        # If not found or is "Not found", try pattern matching
-        if not value or value == "Not found":
-            pattern_value = self._extract_from_text(markdown_content, pattern_key)
-            if pattern_value:
-                return pattern_value
-
-        return value
-
-    def _extract_from_text(self, text: str, pattern_key: str) -> str:
-        """Extract value from text using regex patterns"""
-        if not text or pattern_key not in self.medical_patterns:
-            return ""
-
-        patterns = self.medical_patterns[pattern_key]
-        for pattern in patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            if matches:
-                # Return the first match, cleaned up
-                match = str(matches[0]).strip()
-                if match and len(match) > 2:  # Ensure meaningful match
-                    return match
-
-        return ""
-
-    def _extract_field(self, data: Dict, field_name: str, fallback: str) -> str:
-        """Extract field from data with fallback"""
-        if not data or not isinstance(data, dict):
-            self.logger.debug(f"Data is not a valid dict for field {field_name}: {type(data)}")
-            return fallback
-
-        # Handle both single values and arrays
-        value = data.get(field_name)
-        if isinstance(value, list) and value:
-            # Take the first non-empty value from the list
-            for item in value:
-                if item and str(item).strip():
-                    return str(item).strip()
-            return fallback
-        elif value and str(value).strip():
-            return str(value).strip()
+            except Exception as e:
+                self.logger.warning(f"Failed to parse extracted_content: {str(e)}")
+                self.logger.debug(f"Raw content that failed: {result.extracted_content}")
         else:
-            return fallback
+            self.logger.warning("No extracted_content found in crawl result")
 
-    def _clean_and_validate_field(self, value: str, field_type: str) -> str:
-        """Clean and validate extracted field values"""
-        if not value or value == "Not found":
-            return "Not found"
+        return scraped_data
 
-        # Clean up common issues
-        value = str(value).strip()
+    async def _verify_with_llm(self, scraped_data, markdown_content, original_product):
+        """Use LLM to verify and clean scraped data"""
+        try:
+            verified_data = await self.content_filter.verify_and_clean_data(
+                scraped_data,
+                markdown_content,
+                original_product
+            )
+            return verified_data
+        except Exception as e:
+            self.logger.warning(f"LLM verification failed: {str(e)}")
+            return scraped_data
 
-        # For SKU and part number, be more careful with cleaning
-        if field_type in ["sku_id", "part_number"]:
-            # Only remove obvious prefixes/suffixes, not the actual content
-            value = re.sub(r'^(sku|part|number|id|code|item)[:\s]*', '', value, flags=re.IGNORECASE)
-            value = re.sub(r'[:\s]*(sku|part|number|id|code|item)$', '', value, flags=re.IGNORECASE)
-            value = value.strip()
-
-            # Ensure it's not empty after cleaning
-            if not value or len(value) < 2:
-                return "Not found"
-
-        # Apply validation rules if available
-        if not self._validate_field_with_rules(value, field_type):
-            return "Not found"
-
-        return value
-
-    def _clean_and_validate_price(self, price: str) -> str:
-        """Clean and validate price field"""
-        if not price or price == "Not found":
-            return "Not found"
-
-        price = str(price).strip()
-
-        # More lenient price validation - accept various formats
-        price_patterns = [
-            r'^\$\d+[,\d]*\.?\d*$',  # $145.00
-            r'^\$\s*\d+[,\d]*\.?\d*$',  # $ 145.00
-            r'^\d+[,\d]*\.?\d*\s*USD$',  # 145.00 USD
-            r'^\d+[,\d]*\.?\d*$',  # 145.00 (without currency)
-        ]
-
-        for pattern in price_patterns:
-            if re.match(pattern, price):
-                return price
-
-        # Try to extract price from text
-        price_match = re.search(r'\$\d+[,\d]*\.?\d*', price)
-        if price_match:
-            return price_match.group()
-
-        # If it looks like a price but doesn't match patterns, still accept it
-        if re.search(r'\d+\.?\d*', price) and ('$' in price or 'USD' in price.upper()):
-            return price
-
-        return "Not found"
-
-    def _create_error_product(self, original_product: product_search_pb2.ProductData) -> product_search_pb2.ProductData:
-        """Create a product with error indication"""
+    def _create_final_product(self, data, original_product):
+        """Create final product with verified data"""
         return product_search_pb2.ProductData(
-            sku_id="Not found",
-            part_number="Not found",
+            sku_id=data.get("sku_id") or original_product.sku_id or "Not found",
+            part_number=data.get("part_number") or original_product.part_number or "Not found",
+            product_name=original_product.product_name,
+            brand=data.get("brand") or original_product.brand or "Not found",
+            price=original_product.price or "Not found",
+            description=data.get("description") or original_product.description or "Not found",
+            product_url=original_product.product_url
+        )
+
+    def _create_fallback_product(self, original_product):
+        """Create fallback product when scraping fails"""
+        return product_search_pb2.ProductData(
+            sku_id=original_product.sku_id or "Not found",
+            part_number=original_product.part_number or "Not found",
             product_name=original_product.product_name,
             brand=original_product.brand or "Not found",
             price=original_product.price or "Not found",
-            description=original_product.description or "Error occurred during extraction",
+            description=original_product.description or "Scraping failed",
             product_url=original_product.product_url
         )

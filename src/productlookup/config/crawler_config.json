@@ -1,207 +1,62 @@
 {
-  "fields": {
-    "title": {
-      "enabled": true,
-      "selectors": [
-        "h1.product-title",
-        "h1.title",
-        ".product-name h1",
-        "[data-testid='product-title']",
-        ".product-heading",
-        ".item-name",
-        "h1[class*='product']",
-        "h1[class*='title']",
-        ".product-name",
-        ".product-title",
-        "h1"
-      ]
-    },
-    "brand": {
-      "enabled": true,
-      "selectors": [
-        ".brand-name",
-        ".manufacturer",
-        ".vendor",
-        "[data-testid='brand']",
-        ".product-brand",
-        ".brand",
-        ".company-name",
-        ".manufacturer-name",
-        "[class*='brand']",
-        "[class*='manufacturer']",
-        "[data-brand]"
-      ]
-    },
-    "price": {
-      "enabled": true,
-      "selectors": [
-        ".price-current",
-        ".current-price",
-        ".product-price",
-        ".price",
-        ".offer-price",
-        "[data-testid='price']",
-        ".sale-price",
-        ".price-value",
-        "[class*='price']:not(.price-old):not(.price-was)",
-        ".cost",
-        "[data-price]",
-        ".price-now"
-      ]
-    },
-    "description": {
-      "enabled": true,
-      "selectors": [
-        ".product-description",
-        ".description",
-        "[id*='description']",
-        ".product-summary",
-        ".product-details",
-        ".item-description",
-        ".product-info",
-        ".specifications",
-        ".features",
-        "[data-testid='description']"
-      ]
-    },
-    "part_number": {
-      "enabled": true,
-      "selectors": [
-        "[data-part-number]",
-        ".part-number",
-        ".model-number",
-        ".catalog-number",
-        ".item-number",
-        ".sku-number",
-        "[id*='part-number']",
-        "[id*='model-number']",
-        ".mpn",
-        "[data-test*='part']",
-        ".product-code",
-        ".catalog-no",
-        ".item-code",
-        "[class*='part-number']",
-        "[class*='model-number']"
-      ]
-    },
-    "sku_id": {
-      "enabled": true,
-      "selectors": [
-        "[data-sku]",
-        ".sku",
-        ".sku-number",
-        ".item-code",
-        ".product-code",
-        ".sku-code",
-        "[id*='sku']",
-        "[class*='sku']",
-        "[data-test*='sku']",
-        ".product-id",
-        ".item-id",
-        "[data-product-id]",
-        "[data-item-id]"
-      ]
-    }
+  "selectors": {
+    "sku_id": [
+      ".sku",
+      "[data-sku]",
+      ".product-code",
+      ".item-code",
+      ".sku-number",
+      "[class*='sku']",
+      ".product-id",
+      "[id*='sku']",
+      "[data-product-id]",
+      ".article-number",
+      ".part-id"
+    ],
+    "part_number": [
+      ".part-number",
+      "[data-part-number]",
+      ".model-number",
+      ".catalog-number",
+      ".item-number",
+      ".mpn",
+      "[class*='part-number']",
+      "[class*='model']",
+      ".product-number",
+      "[data-model]",
+      ".reference"
+    ],
+    "brand": [
+      ".brand",
+      ".manufacturer",
+      "[data-brand]",
+      ".company-name",
+      ".vendor",
+      "[class*='brand']",
+      "[class*='manufacturer']",
+      ".supplier",
+      "[data-manufacturer]",
+      ".brand-name"
+    ],
+    "description": [
+      ".description",
+      ".product-description",
+      ".product-summary",
+      ".product-details",
+      ".item-description",
+      "[class*='description']",
+      ".product-info",
+      ".summary",
+      ".overview",
+      ".product-overview",
+      "h1",
+      ".product-title",
+      ".product-name"
+    ]
   },
-  "medical_lab_specific": {
-    "enabled": true,
-    "additional_selectors": {
-      "specifications": [
-        ".specifications",
-        ".product-specs",
-        ".technical-specs",
-        ".product-details",
-        ".specs-table",
-        ".product-attributes",
-        "[data-testid='specifications']"
-      ],
-      "certifications": [
-        ".certifications",
-        ".certification",
-        ".compliance",
-        ".standards",
-        ".approvals",
-        "[data-testid='certifications']"
-      ],
-      "capacity_volume": [
-        "[class*='capacity']",
-        "[class*='volume']",
-        "[class*='size']",
-        ".capacity",
-        ".volume",
-        ".size",
-        "[data-capacity]",
-        "[data-volume]"
-      ]
-    }
-  },
-  "extraction_strategies": {
-    "thermofisher.com": {
-      "sku_selectors": [
-        "[data-product-id]",
-        ".catalog-number",
-        ".product-code"
-      ],
-      "part_number_selectors": [
-        ".part-number",
-        ".catalog-number",
-        "[data-part-number]"
-      ],
-      "price_selectors": [
-        ".price-current",
-        ".product-price",
-        "[data-price]"
-      ]
-    },
-    "sigmaaldrich.com": {
-      "sku_selectors": [
-        ".product-number",
-        ".catalog-number",
-        "[data-product-number]"
-      ],
-      "part_number_selectors": [
-        ".product-number",
-        ".catalog-number"
-      ],
-      "price_selectors": [
-        ".price",
-        ".product-price"
-      ]
-    }
-  },
-  "validation_rules": {
-    "sku_id": {
-      "min_length": 3,
-      "max_length": 50,
-      "pattern": "^[A-Za-z0-9\\-_/\\.\\s]+$"
-    },
-    "part_number": {
-      "min_length": 2,
-      "max_length": 50,
-      "pattern": "^[A-Za-z0-9\\-_/\\.\\s]+$"
-    },
-    "price": {
-      "pattern": "^\\$?\\d+([,\\d]*\\.?\\d*)?(\\s*(USD|usd))?$"
-    }
-  },
-  "ollama": {
-    "host": "http://localhost:11434",
-    "model": "mistral:latest",
-    "temperature": 0.1,
-    "max_tokens": 1500
-  },
-  "crawl4ai": {
-    "browser": {
-      "headless": true,
-      "viewport_width": 1280,
-      "viewport_height": 720,
-      "timeout": 45000
-    },
-    "extraction": {
-      "cache_mode": "bypass",
-      "ignore_links": true,
-      "wait_for_selector": "body",
-      "wait_timeout": 10000
-    }
+  "extraction_options": {
+    "max_length": 500,
+    "trim_whitespace": true,
+    "remove_empty": true
   }
 }
