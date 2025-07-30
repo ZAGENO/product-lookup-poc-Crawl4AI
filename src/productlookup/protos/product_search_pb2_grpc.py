@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import productlookup.protos.product_search_pb2 as product__search__pb2
+from . import product_search_pb2 as product__search__pb2
 
 
 class ProductSearchStub(object):

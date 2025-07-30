@@ -10,6 +10,11 @@ message SearchProductRequest {
   string query = 1;
 }
 
+message ProductAttribute {
+  string key = 1;
+  string value = 2;
+}
+
 message ProductData {
   string sku_id = 1;
   string product_name = 2;
@@ -18,6 +23,8 @@ message ProductData {
   string price = 5;
   string product_url = 6;
   string part_number = 7;
+  repeated ProductAttribute attributes = 8;
+
 }
 
 message SearchProductResponse {

@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14product_search.proto\x12\rproductlookup\"%\n\x14SearchProductRequest\x12\r\n\x05query\x18\x01 \x01(\t\"\x90\x01\n\x0bProductData\x12\x0e\n\x06sku_id\x18\x01 \x01(\t\x12\x14\n\x0cproduct_name\x18\x02 \x01(\t\x12\r\n\x05\x62rand\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\r\n\x05price\x18\x05 \x01(\t\x12\x13\n\x0bproduct_url\x18\x06 \x01(\t\x12\x13\n\x0bpart_number\x18\x07 \x01(\t\"E\n\x15SearchProductResponse\x12,\n\x08products\x18\x01 \x03(\x0b\x32\x1a.productlookup.ProductData2m\n\rProductSearch\x12\\\n\rSearchProduct\x12#.productlookup.SearchProductRequest\x1a$.productlookup.SearchProductResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14product_search.proto\x12\rproductlookup\"%\n\x14SearchProductRequest\x12\r\n\x05query\x18\x01 \x01(\t\".\n\x10ProductAttribute\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xc5\x01\n\x0bProductData\x12\x0e\n\x06sku_id\x18\x01 \x01(\t\x12\x14\n\x0cproduct_name\x18\x02 \x01(\t\x12\r\n\x05\x62rand\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\r\n\x05price\x18\x05 \x01(\t\x12\x13\n\x0bproduct_url\x18\x06 \x01(\t\x12\x13\n\x0bpart_number\x18\x07 \x01(\t\x12\x33\n\nattributes\x18\x08 \x03(\x0b\x32\x1f.productlookup.ProductAttribute\"E\n\x15SearchProductResponse\x12,\n\x08products\x18\x01 \x03(\x0b\x32\x1a.productlookup.ProductData2m\n\rProductSearch\x12\\\n\rSearchProduct\x12#.productlookup.SearchProductRequest\x1a$.productlookup.SearchProductResponse\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,10 +23,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   _globals['_SEARCHPRODUCTREQUEST']._serialized_start=39
   _globals['_SEARCHPRODUCTREQUEST']._serialized_end=76
-  _globals['_PRODUCTDATA']._serialized_start=79
-  _globals['_PRODUCTDATA']._serialized_end=223
-  _globals['_SEARCHPRODUCTRESPONSE']._serialized_start=225
-  _globals['_SEARCHPRODUCTRESPONSE']._serialized_end=294
-  _globals['_PRODUCTSEARCH']._serialized_start=296
-  _globals['_PRODUCTSEARCH']._serialized_end=405
+  _globals['_PRODUCTATTRIBUTE']._serialized_start=78
+  _globals['_PRODUCTATTRIBUTE']._serialized_end=124
+  _globals['_PRODUCTDATA']._serialized_start=127
+  _globals['_PRODUCTDATA']._serialized_end=324
+  _globals['_SEARCHPRODUCTRESPONSE']._serialized_start=326
+  _globals['_SEARCHPRODUCTRESPONSE']._serialized_end=395
+  _globals['_PRODUCTSEARCH']._serialized_start=397
+  _globals['_PRODUCTSEARCH']._serialized_end=506
 # @@protoc_insertion_point(module_scope)

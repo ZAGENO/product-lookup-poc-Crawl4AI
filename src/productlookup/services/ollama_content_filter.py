@@ -43,6 +43,10 @@ class OllamaContentFilter:
                             extracted_data = json.loads(json_str)
                             self.logger.info(f"Ollama extracted data: {extracted_data}")
                             cleaned_data = self._validate_extracted_data(extracted_data)
+                            attributes = extracted_data.get("attributes", [])
+                            if not isinstance(attributes, list):
+                                attributes = []
+                            cleaned_data["attributes"] = attributes
                             return cleaned_data
                         else:
                             self.logger.warning("No JSON found in Ollama response")
@@ -54,22 +58,30 @@ class OllamaContentFilter:
             self.logger.error(f"Error enriching with Ollama: {str(e)}")
             return {}
 
+    # python
     async def verify_and_clean_data(self, scraped_data, markdown_content, original_product):
         """
         Use Ollama to verify and clean scraped data.
         If LLM returns nothing or 'Not found', fall back to scraped_data.
         """
         enriched = await self.enrich_content(markdown_content, original_product)
+
         def pick(field):
             val = (enriched.get(field) or "").strip()
             if not val or val.lower() == "not found":
                 return (scraped_data.get(field) or "").strip()
             return val
+
+        # Add attributes, fallback to empty list if not present
+        attributes = enriched.get("attributes", [])
+        if not isinstance(attributes, list):
+            attributes = []
         return {
             "sku_id": pick("sku_id"),
             "part_number": pick("part_number"),
             "brand": pick("brand"),
-            "description": pick("description")
+            "description": pick("description"),
+            "attributes": attributes
         }
 
     def _create_medical_extraction_prompt(self, product, markdown_content):
@@ -93,7 +105,7 @@ class OllamaContentFilter:
 
         3. Brand/Manufacturer:
            - Look for: Brand name, Manufacturer, Company name
-           - Common medical/lab brands: Fisher Scientific, Sigma-Aldrich, Eppendorf, Gilson, Thermo Fisher
+           - Cross-check with the main product title, meta tags, or page header.
            - If not found, try to infer from copyright, footer, or page title.
            - Example: "Brand: Eppendorf", "Manufacturer: Gilson", "by Thermo Fisher Scientific"
 
@@ -101,14 +113,33 @@ class OllamaContentFilter:
            - Look for: Product description, Features, Specifications summary
            - Focus on key technical details, capacity, volume, or specifications
            - If not found, summarize the most relevant technical or usage info in under 200 characters.
-           - Example: "Universal-fit 10µL pipette tips, low retention, sterile, compatible with most pipettors."
+
+        5. Product Name:
+       - Extract the main product name as shown on the product page or title.
+       - Remove marketing phrases, taglines, or extra descriptions (e.g., remove text after a dash or ellipsis).
+       - Focus on the concise, core product identifier (e.g., '0.1-10uL Certified Pipette Tips').
+       - Cross-check with the page header or main title.
+       
+       
+       6. Key Attributes:
+       - Extract key attributes (such as volume, type, color, pack size, material, etc.) from the product name and description.
+       - Return as a list of key-value pairs, e.g., [{{"key": "volume", "value": "10uL"}}, {{"key": "type", "value": "pipette tip"}}].
+       - Only include attributes that are clearly present in the text.
+
+
+        For each field, only extract if you are confident it matches the visible content on the product page. If not found or unsure, return "Not found".
 
         Return ONLY a valid JSON object with these exact fields:
         {{
             "sku_id": "extracted SKU or 'Not found'",
             "part_number": "extracted part number or 'Not found'",
             "brand": "brand/manufacturer name or 'Not found'",
-            "description": "brief description under 200 chars or 'Not found'"
+            "description": "brief description under 200 chars or 'Not found'",
+            "product_name": "main product name or 'Not found'",
+            "attributes": [
+            {{"key": "attribute name", "value": "attribute value"}},
+            ...
+        ]
         }}
 
         Markdown Content:
