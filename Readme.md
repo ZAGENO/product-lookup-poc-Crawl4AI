@@ -71,7 +71,6 @@ A gRPC microservice that searches for products using Google Programmable Search 
    
    # Crawler Configuration
    CRAWLER_CONFIG_PATH=src/productlookup/config/crawler_config.json
-   MEDICAL_LAB_CONFIG_PATH=src/productlookup/config/medical_lab_config.json
    
    # Search Configuration
    MAX_SEARCH_RESULTS=8

@@ -32,7 +32,6 @@ services:
 
       # Crawler Configuration
       - CRAWLER_CONFIG_PATH=/app/config/crawler_config.json
-      - MEDICAL_LAB_CONFIG_PATH=/app/config/medical_lab_config.json
 
       # Search Configuration
       - MAX_SEARCH_RESULTS=8

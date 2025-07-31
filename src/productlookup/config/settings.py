@@ -13,7 +13,6 @@ GRPC_PORT = os.getenv("GRPC_PORT", "50051")
 
 # Crawler settings
 CRAWLER_CONFIG_PATH = os.getenv("CRAWLER_CONFIG_PATH", "src/productlookup/config/crawler_config.json")
-MEDICAL_LAB_CONFIG_PATH = os.getenv("MEDICAL_LAB_CONFIG_PATH", "src/productlookup/config/medical_lab_config.json")
 
 # Ollama settings
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")

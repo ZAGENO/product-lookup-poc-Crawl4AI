@@ -1,62 +1,11 @@
 {
-  "selectors": {
-    "sku_id": [
-      ".sku",
-      "[data-sku]",
-      ".product-code",
-      ".item-code",
-      ".sku-number",
-      "[class*='sku']",
-      ".product-id",
-      "[id*='sku']",
-      "[data-product-id]",
-      ".article-number",
-      ".part-id"
-    ],
-    "part_number": [
-      ".part-number",
-      "[data-part-number]",
-      ".model-number",
-      ".catalog-number",
-      ".item-number",
-      ".mpn",
-      "[class*='part-number']",
-      "[class*='model']",
-      ".product-number",
-      "[data-model]",
-      ".reference"
-    ],
-    "brand": [
-      ".brand",
-      ".manufacturer",
-      "[data-brand]",
-      ".company-name",
-      ".vendor",
-      "[class*='brand']",
-      "[class*='manufacturer']",
-      ".supplier",
-      "[data-manufacturer]",
-      ".brand-name"
-    ],
-    "description": [
-      ".description",
-      ".product-description",
-      ".product-summary",
-      ".product-details",
-      ".item-description",
-      "[class*='description']",
-      ".product-info",
-      ".summary",
-      ".overview",
-      ".product-overview",
-      "h1",
-      ".product-title",
-      ".product-name"
-    ]
+  "crawler_settings": {
+    "delay_between_requests": 1,
+    "timeout": 30,
+    "max_retries": 2
   },
-  "extraction_options": {
-    "max_length": 500,
-    "trim_whitespace": true,
-    "remove_empty": true
+  "llm_settings": {
+    "max_markdown_length": 50000,
+    "extraction_timeout": 30
   }
 }
