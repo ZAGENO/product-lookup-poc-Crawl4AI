@@ -125,6 +125,11 @@ class WebCrawlerService:
 
     def _create_final_product(self, data, original_product):
         """Create final product with extracted data"""
+        attributes = [
+            product_search_pb2.ProductAttribute(key=attr.get("key", ""), value=attr.get("value", ""))
+            for attr in data.get("attributes", [])
+            if attr.get("key") and attr.get("value")
+        ]
         return product_search_pb2.ProductData(
             sku_id=data.get("sku_id") or original_product.sku_id or "Not found",
             part_number=data.get("part_number") or original_product.part_number or "Not found",
@@ -132,11 +137,13 @@ class WebCrawlerService:
             brand=data.get("brand") or original_product.brand or "Not found",
             price=original_product.price or "Not found",
             description=data.get("description") or original_product.description or "Not found",
-            product_url=original_product.product_url
+            product_url=original_product.product_url,
+            attributes=attributes
         )
 
     def _create_fallback_product(self, original_product):
         """Create fallback product when scraping fails"""
+        attributes = list(original_product.attributes) if hasattr(original_product, "attributes") else []
         return product_search_pb2.ProductData(
             sku_id=original_product.sku_id or "Not found",
             part_number=original_product.part_number or "Not found",
@@ -144,5 +151,6 @@ class WebCrawlerService:
             brand=original_product.brand or "Not found",
             price=original_product.price or "Not found",
             description=original_product.description or "Not found",
-            product_url=original_product.product_url
+            product_url=original_product.product_url,
+            attributes=attributes
         )
