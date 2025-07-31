@@ -21,19 +21,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral:latest")
 # Search settings
 MAX_SEARCH_RESULTS = int(os.getenv("MAX_SEARCH_RESULTS", "8"))
 
-# Medical/Lab specific settings
-MEDICAL_SITES = [
-    "fishersci.com",
-    "sigmaaldrich.com",
-    "thermofisher.com",
-    "vwr.com",
-    "usascientific.com",
-    "eppendorf.com",
-    "gilson.com",
-    "celltreat.com",
-    "globescientific.com",
-    "shoprainin.com"
-]
 
 # Extraction settings
 EXTRACTION_TIMEOUT = int(os.getenv("EXTRACTION_TIMEOUT", "45000"))
